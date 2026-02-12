@@ -1,0 +1,13 @@
+numpy
+pandas
+matplotlib
+torch
+torchvision
+torchaudio
+tianshou>=1.0.0
+gymnasium
+shimmy
+gym-dssat-pdi
+tensorboard
+wandb
+tqdm
