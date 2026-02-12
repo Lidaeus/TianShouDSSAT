@@ -1,0 +1,26 @@
+name: wheat-rl
+channels:
+  - conda-forge
+  - pytorch
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - gfortran
+  - cmake
+  - git
+  - numpy
+  - pandas
+  - matplotlib
+  - pytorch
+  - torchvision
+  - torchaudio
+  - cpuonly
+  - pip:
+      - tianshou>=1.0.0
+      - gymnasium
+      - shimmy
+      - gym-dssat-pdi
+      - tensorboard
+      - wandb
+      - tqdm
