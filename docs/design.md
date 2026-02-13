@@ -1,21 +1,23 @@
-# 小麦强化学习优化系统开发文档 (Design Document)
+# 多作物强化学习优化系统开发文档 (Design Document)
 
 ## 1. 系统架构
 
-系统采用三层架构并深度集成防御与引导机制：
-1.  **引擎层 (Engine Layer)**: `gym-dssat-pdi` 集成的 DSSAT 核心引擎（基于 v4.7.5 修改版），负责小麦生长物理过程模拟。
-2.  **接口层 (Interface Layer)**: 基于 `gym-dssat-pdi` 的增强型 `WheatEnv`。
+系统采用通用的“物理仿真+强化学习”解耦架构，旨在支持多种农作物的决策优化：
+1.  **引擎层 (Engine Layer)**: `gym-dssat-pdi` 集成的 DSSAT 核心引擎。通过 **CROPGRO** 模板机制，支持番茄、草莓等多种作物的统一状态观测。
+2.  **接口层 (Interface Layer)**: 通用的 `DssatGenericWrapper`。
+    *   **品种适配**: 根据构造参数自动加载对应作物的 FileX 实验模板和 PDI 观测映射。
     *   **Wrapper 逻辑**: 负责动作裁剪、异常捕获、时序特征拼接和 Reward 计算。
-3.  **算法层 (Algorithm Layer)**: 基于天授 (Tianshou) 的 RL 框架。
+3.  **算法层 (Algorithm Layer)**: 基于天授 (Tianshou 2.0) 的 RL 框架。
     *   **主算法**: Rainbow DQN (应对离散空间)。
-    *   **预训练**: 行为克隆 (Behavioral Cloning) 模块。
+    *   **架构**: 采用 Algorithm/Policy/Params 分离架构。
 
 ## 2. 核心模块设计
 
-### 2.1 增强型环境封装 (`WheatEnv`)
+### 2.1 通用环境封装 (`DssatGenericWrapper`)
+*   **支持作物**: 目前已验证支持 Maize (玉米), Tomato (番茄), Strawberry (草莓)。
 *   **动作处理**: 
-    *   输入 Agent 的索引值，映射到预设的 [0, 10, ... 200] 物理值。
-    *   **动作裁剪**: 强制限制单日总施用量，防止 DSSAT 崩溃。
+    *   通用动作：`AMIR` (灌溉), `ANFER` (施肥)。
+    *   输入 Agent 的索引值，映射到预设的物理值。
 *   **状态增强引擎**:
     *   **时序 Buffer**: 内部维护一个队列，存储过去 14 天的历史状态。
     *   **预报接口**: 提前读取 `.WTH` 文件，注入未来 7 天的气象向量。

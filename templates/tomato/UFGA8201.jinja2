@@ -1,0 +1,48 @@
+*EXP.DETAILS: UFGA8201TM NIT X IRR, GAINESVILLE 2N*3I
+
+*GENERAL
+@PEOPLE
+ BENNETT,J.M. ZUR,B. HAMMOND,L.C. JONES,J.W.
+@ADDRESS
+ UNIVERSITY OF FLORIDA, GAINESVILLE, FL, USA
+@SITE
+ Irrigation Park, University of Florida
+@ PAREA  PRNO  PLEN  PLDR  PLSP  PLAY HAREA  HRNO  HLEN  HARM.........
+    -99   -99   -99   -99   -99   -99   -99   -99   -99   -99
+
+*TREATMENTS                        -------------FACTOR LEVELS------------
+@N R O C TNAME.................... CU FL SA IC MP MI MF MR MC MT ME MH SM
+ 1 1 0 0 RAINFED LOW NITROGEN       1  1  0  1  1  1  1  0  0  0  0  0  1
+
+*CULTIVARS
+@C CR INGENO CNAME
+ 1 TM TM0001 Florida 47
+
+*FIELDS
+@L ID_FIELD WSTA....  FLSA  FLOB  FLDT  FLDD  FLDS  FLST SLTX  SLDP  ID_SOIL    FLNAME
+ 1 UFGA0002 UFGA       -99     0 DR000     0     0 00000 -99    180  IBMZ910014 Field section
+
+*INITIAL CONDITIONS
+@C   PCR ICDAT  ICRT  ICND  ICRN  ICRE  ICWD ICRES ICREN ICREP ICRIP ICRID ICNAME
+ 1    TM 82030   100     0     1     1   -99  1000    .8     0   100    15 -99
+@C  ICBL  SH2O  SNH4  SNO3
+ 1     5  .086    .5    .1
+ 1    15  .086    .5    .1
+ 1    30  .086    .5    .1
+ 1    60  .086    .5    .1
+
+*PLANTING DETAILS
+@P PDATE EDATE  PPOP  PPOE  PLME  PLDS  PLRS  PLRD  PLDP  PLWT  PAGE  PENV  PLPH  SPRL                        PLNAME
+ 1 82057   -99   7.2   7.2     S     R    61     0     7   -99   -99   -99   -99     0                        -99
+
+*SIMULATION CONTROLS
+@N GENERAL     NYERS NREPS START SDATE RSEED SNAME.................... SMODEL
+ 1 GE              1     1     S 82030  2150 N X IRRIGATION, GAINESVI
+@N OPTIONS     WATER NITRO SYMBI PHOSP POTAS DISES  CHEM  TILL   CO2
+ 1 OP              Y     Y     N     N     N     N     N     Y     M
+@N METHODS     WTHER INCON LIGHT EVAPO INFIL PHOTO HYDRO NSWIT MESOM MESEV MESOL
+ 1 ME              {{ wther }}     M     E     R     S     R     R     1     G     S     2
+@N MANAGEMENT  PLANT IRRIG FERTI RESID HARVS
+ 1 MA              {{ plant }}     {{ irrig }}     {{ ferti }}     N     M
+@N OUTPUTS     FNAME OVVEW SUMRY FROPT GROUT CAOUT WAOUT NIOUT MIOUT DIOUT VBOSE CHOUT OPOUT FMOPT
+ 1 OU              N     N     N     1     N     N     N     N     N     N     N     N     N     A
