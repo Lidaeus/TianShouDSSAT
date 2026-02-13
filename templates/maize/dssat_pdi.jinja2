@@ -1,14 +1,19 @@
 logging:
+{#  level: debug#}
   level: error
 
 metadata:
   NLAYR: int
 
 data:
+### early stopping
   PDI_EARLY_STOPPING: logical
+### random seed
   RSEED1: int
+### action
   ANFER: float
   AMIR: float
+### state
   YRDOY: int
   NSTRES: float
   ISTAGE: int
@@ -55,6 +60,10 @@ data:
     subtype: float
     size: '$NLAYR'
     size: '$NLAYR'
+{#  SW_AVAIL:#}
+{#    type: array#}
+{#    subtype: float#}
+{#    size: '$NLAYR'#}
   SW:
     type: array
     subtype: float
@@ -67,8 +76,16 @@ data:
     type: array
     subtype: float
     size: '$NLAYR'
-
+{#  SNO3:#}
+{#    type: array#}
+{#    subtype: float#}
+{#    size: '$NLAYR'#}
+{#  SNH4:#}
+{#    type: array#}
+{#    subtype: float#}
+{#    size: '$NLAYR'#}
 plugins:
+{#  trace: ~#}
   pycall:
     on_data:
       YRDOY: |
@@ -123,6 +140,8 @@ plugins:
         dul = DUL
       SW: |
         sw = SW
+{#      SW_AVAIL: |#}
+{#        sw_avail = SW_AVAIL#}
       ES: |
         es = ES
       EO: |
@@ -147,15 +166,28 @@ plugins:
         totaml = TOTAML
       TOTIR: |
         totir = TOTIR
+{#      SNO3: |#}
+{#        sno3_ini = SNO3#}
+{#      SNH4: |#}
+{#        snh4_ini = SNH4#}
     on_event:
       start_client:
         exec: |
-          import sys
+
+          # Activate venv if executing from package
           import os
+          activate_this = "/opt/gym_dssat_pdi/bin/activate_this.py"
+          if os.path.exists(activate_this):
+            exec(compile(open(activate_this, "rb").read(), activate_this, 'exec'), dict(__file__=activate_this))
+
+          import sys
           import zmq
           import json
           import logging
           import numpy as np
+          import time
+          import faulthandler
+          faulthandler.enable()
           class NumpyEncoder(json.JSONEncoder):
             def default(self, obj):
               if isinstance(obj, np.ndarray):
@@ -165,44 +197,109 @@ plugins:
               return json.JSONEncoder.default(self, obj)
           context = zmq.Context()
           client = context.socket(zmq.PAIR)
-          client.connect('tcp://localhost:{{ port }}')
+{#          client.setsockopt(zmq.LINGER, 0)#}
+          try:
+            client.connect('tcp://localhost:{{ '{0:d}'.format(port) }}')
+          except Exception as e:
+            logging.exception(e)
+            time.sleep(1)
           done = False
-          rseed1_ = {{ rseed1 }}
+          rseed1_ = {{ '{0:d}'.format(rseed1) }}
           is_early_stopping = False
-          print('Maize Client started')
+          is_last_send = False
+          print('Client started')
       flag_done:
         exec: |
           done = True
           message = {'done': done, 'state': {}}
-          client.send(json.dumps(message, cls=NumpyEncoder).encode('utf-8'))
+          try:
+            client.send(json.dumps(message, cls=NumpyEncoder).encode('utf-8'))
+          except:
+            logging.exception(e)
+          is_last_send = True
           rseed1_ = client.recv().decode('utf-8')
-      interact:
+          is_last_send = False
+      flag_undone:
         exec: |
-          state = {'yrdoy': yrdoy, 'nstres': nstres, 'istage': istage, 'vstage': vstage,
-          'grnwt': grnwt, 'topwt': topwt, 'pltpop': pltpop, 'swfac': swfac, 'pcngrn': pcngrn,
-          'tleachd': tleachd, 'tnoxd': tnoxd, 'wtnup': wtnup, 'cleach': cleach, 'cnox': cnox,
-          'cumsumfert': cumsumfert, 'xlai': xlai, 'trnu': trnu, 'rain': rain, 'tmin': tmin,
-          'tmax': tmax, 'srad': srad, 'dtt': dtt, 'dap': dap, 'll': ll, 'dul': dul, 'sw': sw,
-          'es': es, 'eo': eo, 'eop': eop, 'eos': eos, 'ep': ep, 'runoff': runoff, 'wtdep': wtdep,
-          'sat': sat, 'rtdep': rtdep, 'dlayr': dlayr, 'totaml': totaml, 'totir': totir }
-          message = {'done':done, 'state':state}
-          client.send(json.dumps(message, cls=NumpyEncoder).encode('utf-8'))
-          response = json.loads(client.recv().decode('utf-8'))
-          action = response['action']
-          is_early_stopping = response['early_stopping']
-      fertilize:
-        with: {anfer: $ANFER}
+          done = False
+      stop_client:
         exec: |
-          anfer[()] = action['anfer']
-      irrigate:
-        with: {amir: $AMIR}
-        exec: |
-          amir[()] = action['amir']
+          client.close()
+          context.term()
+          print('Client closed')
       set_rseed:
         with: {rseed1: $RSEED1}
-        exec: |
+        exec:
           rseed1[()] = rseed1_
       early_stopping:
         with: {pdi_early_stopping: $PDI_EARLY_STOPPING}
-        exec: |
+        exec:
           pdi_early_stopping[()] = is_early_stopping
+      interact:
+        exec: |
+          state = {'yrdoy': yrdoy,
+          'nstres': nstres,
+          'istage': istage,
+          'vstage': vstage,
+          'grnwt': grnwt,
+          'topwt': topwt,
+          'pltpop': pltpop,
+          'swfac': swfac,
+          'pcngrn': pcngrn,
+          'tleachd': tleachd,
+          'tnoxd': tnoxd,
+          'wtnup': wtnup,
+          'cleach': cleach,
+          'cnox': cnox,
+          'cumsumfert': cumsumfert,
+          'xlai': xlai,
+          'trnu': trnu,
+          'rain': rain,
+          'tmin': tmin,
+          'tmax': tmax,
+          'srad': srad,
+          'dtt': dtt,
+          'dap': dap,
+          'll': ll,
+          'dul': dul,
+          'sw': sw,
+{#          'sw_avail': sw_avail,#}
+          'es': es,
+          'eo': eo,
+          'eop': eop,
+          'eos': eos,
+          'ep': ep,
+          'runoff': runoff,
+          'wtdep': wtdep,
+          'sat': sat,
+          'rtdep': rtdep,
+          'dlayr': dlayr,
+          'totaml': totaml,
+          'totir': totir,
+          }
+          message_to_client = {'done':done, 'state':state}
+          message_to_client_js = json.dumps(message_to_client, cls=NumpyEncoder)
+          message_to_client = {'done':None, 'state':None}
+          client.send(message_to_client_js.encode('utf-8'))
+          is_last_send = True
+          try:
+            message_from_client_js = client.recv().decode('utf-8')
+            is_last_send = False
+            message_from_client = json.loads(message_from_client_js)
+            action = message_from_client['action']
+            is_early_stopping = message_from_client['early_stopping']
+          except Exception as e:
+            state_keys = [*state]
+            for state_key in state_keys:
+              print('key ' , state_key, file=sys.stderr, flush=True)
+              print('value ', state[state_key], file=sys.stderr, flush=True)
+            logging.exception(e)
+            time.sleep(1)
+      fertilize:
+        with: {anfer: $ANFER}
+        exec:
+          anfer[()] = action['anfer']
+      irrigate:
+        with: {amir: $AMIR}
+        exec:
+          amir[()] = action['amir']
