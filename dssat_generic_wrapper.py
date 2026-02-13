@@ -82,6 +82,30 @@ class DssatGenericWrapper(gym.Wrapper):
             low=-np.inf, high=np.inf, shape=(num_features,), dtype=np.float32
         )
 
+        # 6. 定义离散动作空间 (Action Discretization)
+        # 氮肥 (kg/ha): 0, 40, 80, 120, 160, 200
+        self.anfer_buckets = [0, 40, 80, 120, 160, 200]
+        # 灌溉 (mm): 0, 10, 20, 30, 40, 50
+        self.amir_buckets = [0, 10, 20, 30, 40, 50]
+        
+        self.num_anfer = len(self.anfer_buckets)
+        self.num_amir = len(self.amir_buckets)
+        self.action_space = gym.spaces.Discrete(self.num_anfer * self.num_amir)
+
+    def _map_action(self, action_idx: int) -> Dict[str, float]:
+        """将离散动作索引映射为物理值字典"""
+        # 确保索引在有效范围内
+        action_idx = int(action_idx) % self.action_space.n
+        
+        # 解码索引: action_idx = anfer_idx * num_amir + amir_idx
+        anfer_idx = action_idx // self.num_amir
+        amir_idx = action_idx % self.num_amir
+        
+        return {
+            "anfer": float(self.anfer_buckets[anfer_idx]),
+            "amir": float(self.amir_buckets[amir_idx])
+        }
+
     def _extract_features(self, raw_obs: Dict[str, Any]) -> np.ndarray:
         """从 DSSAT 原始字典中提取并归一化特征"""
         vals = []
@@ -114,8 +138,14 @@ class DssatGenericWrapper(gym.Wrapper):
         return stacked_obs, info
 
     def step(self, action):
-        """执行动作并返回 5 元组"""
-        obs, reward, terminated, truncated, info = self.env.step(action)
+        """执行动作并返回 5 元组
+        Args:
+            action: int (discrete index)
+        """
+        # 映射离散动作为物理字典
+        action_dict = self._map_action(action)
+
+        obs, reward, terminated, truncated, info = self.env.step(action_dict)
         
         # 特征处理
         feat = self._extract_features(obs)
