@@ -1,0 +1,190 @@
+logging:
+  level: error
+
+metadata:
+  NLAYR: int
+
+data:
+  PDI_EARLY_STOPPING: logical
+  RSEED1: int
+  ANFER: float
+  AMIR: float
+  YRDOY: int
+  NSTRES: float
+  VSTAGE: float
+  GRNWT: float
+  TOPWT: float
+  PLTPOP: float
+  SWFAC: float
+  WTNUP: float
+  XLAI: float
+  TRNU: float
+  RAIN: float
+  TMIN: float
+  TMAX: float
+  SRAD: float
+  DAP: int
+  ES: float
+  EO: float
+  EOP: float
+  EOS: float
+  EP: float
+  RTDEP: float
+  TOTIR: float
+  LL:
+    type: array
+    subtype: float
+    size: '$NLAYR'
+  DUL:
+    type: array
+    subtype: float
+    size: '$NLAYR'
+  DLAYR:
+    type: array
+    subtype: float
+    size: '$NLAYR'
+  SW:
+    type: array
+    subtype: float
+    size: '$NLAYR'
+  SAT:
+    type: array
+    subtype: float
+    size: '$NLAYR'
+
+plugins:
+  pycall:
+    on_data:
+      YRDOY: |
+        yrdoy = YRDOY
+      NSTRES: |
+        nstres = NSTRES
+      VSTAGE: |
+        vstage = VSTAGE
+      GRNWT: |
+        grnwt = GRNWT
+      TOPWT: |
+        topwt = TOPWT
+      PLTPOP: |
+        pltpop = PLTPOP
+      SWFAC: |
+        swfac = SWFAC
+      WTNUP: |
+        wtnup = WTNUP
+      XLAI: |
+        xlai = XLAI
+      TRNU: |
+        trnu = TRNU
+      RAIN: |
+        rain = RAIN
+      TMIN: |
+        tmin = TMIN
+      TMAX: |
+        tmax = TMAX
+      SRAD: |
+        srad = SRAD
+      DAP: |
+        dap = DAP
+      LL: |
+        ll = LL
+      DUL: |
+        dul = DUL
+      SW: |
+        sw = SW
+      ES: |
+        es = ES
+      EO: |
+        eo = EO
+      EOS: |
+        eos = EOS
+      EOP: |
+        eop = EOP
+      EP: |
+        ep = EP
+      SAT: |
+        sat = SAT
+      DLAYR: |
+        dlayr = DLAYR
+      RTDEP: |
+        rtdep = RTDEP
+      TOTIR: |
+        totir = TOTIR
+    on_event:
+      start_client:
+        exec: |
+          import os
+          import sys
+          import zmq
+          import json
+          import numpy as np
+          class NumpyEncoder(json.JSONEncoder):
+            def default(self, obj):
+              if isinstance(obj, np.ndarray):
+                return obj.tolist()
+              elif hasattr(obj, 'dtype'):
+                return obj.item()
+              return json.JSONEncoder.default(self, obj)
+          context = zmq.Context()
+          client = context.socket(zmq.PAIR)
+          client.connect('tcp://localhost:{{ port }}')
+          done = False
+          rseed1_ = {{ rseed1 }}
+          print('Tomato Client started')
+      flag_done:
+        exec: |
+          done = True
+          message = {'done': True, 'state': {}}
+          client.send(json.dumps(message, cls=NumpyEncoder).encode('utf-8'))
+          rseed1_ = client.recv().decode('utf-8')
+      interact:
+        exec: |
+          state = {
+            'yrdoy': yrdoy,
+            'nstres': nstres,
+            'vstage': vstage,
+            'grnwt': grnwt,
+            'topwt': topwt,
+            'pltpop': pltpop,
+            'swfac': swfac,
+            'xlai': xlai,
+            'trnu': trnu,
+            'rain': rain,
+            'tmin': tmin,
+            'tmax': tmax,
+            'srad': srad,
+            'dap': dap,
+            'es': es,
+            'eo': eo,
+            'eos': eos,
+            'eop': eop,
+            'ep': ep,
+            'wtnup': wtnup,
+            'rtdep': rtdep,
+            'totir': totir,
+            'll': ll,
+            'dul': dul,
+            'sw': sw,
+            'sat': sat,
+            'dlayr': dlayr,
+          }
+          message = {'done': False, 'state': state}
+          client.send(json.dumps(message, cls=NumpyEncoder).encode('utf-8'))
+          response = json.loads(client.recv().decode('utf-8'))
+          action = response['action']
+          early_stopping_val = response['early_stopping']
+      fertilize:
+        with: {anfer: $ANFER}
+        exec: |
+          anfer[()] = action['anfer']
+      irrigate:
+        with: {amir: $AMIR}
+        exec: |
+          amir[()] = action['amir']
+      set_rseed:
+        with: {rseed1: $RSEED1}
+        exec: |
+          rseed1[()] = rseed1_
+      early_stopping:
+        with: {pdi_early_stopping: $PDI_EARLY_STOPPING}
+        exec: |
+          pdi_early_stopping[()] = early_stopping_val

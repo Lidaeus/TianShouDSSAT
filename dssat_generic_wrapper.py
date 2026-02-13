@@ -33,7 +33,7 @@ class DssatGenericWrapper(gym.Wrapper):
     def __init__(
         self, 
         crop_name: str,
-        env_kwargs: Dict[str, Any],
+        env_kwargs: Dict[str, Any] = {},
         history_len: int = 5,
         seed: Optional[int] = None
     ):
@@ -50,18 +50,30 @@ class DssatGenericWrapper(gym.Wrapper):
         
         # 2. 准备初始化参数
         final_env_kwargs = {
-            "cultivar": self.crop_name, # 使用真实的作物名
+            "run_dssat_location": "/opt/dssat_env/inst/run_dssat",
+            "cultivar": self.crop_name,
             "fileX_template_path": self.config["default_template"],
+            "pdi_template_path": f"templates/{self.crop_name}/dssat_pdi.jinja2",
             "seed": seed
         }
+        
+        # 自动补全资源文件路径
+        aux_files = env_kwargs.get("auxiliary_file_paths", [])
+        if self.crop_name == "tomato":
+            aux_files.extend(["/opt/dssat_env/data/UFGA.CLI", "/opt/dssat_env/data/SOIL.SOL", "/opt/dssat_env/data/UFGA0601.WTH"])
+        elif self.crop_name == "maize":
+            aux_files.extend(["/opt/dssat_env/data/UFGA.CLI", "/opt/dssat_env/data/SOIL.SOL", "/opt/dssat_env/data/UFGA8201.WTH"])
+        
         final_env_kwargs.update(env_kwargs)
+        final_env_kwargs["auxiliary_file_paths"] = list(set(aux_files))
         
         # 3. 在调用 super().__init__ 之前初始化缓冲区，防止 reset() 死锁
         self.obs_keys = self.config["obs_keys"]
         self._history_buffer = []
         
-        # 4. 实例化底层环境
-        env = gym.make("gym_dssat_pdi:GymDssatPdi-v0", **final_env_kwargs)
+        # 4. 实例化底层环境 (直接导入类以规避 gym.make 的循环引用问题)
+        from gym_dssat_pdi.envs.dssat_pdi import DssatPdi
+        env = DssatPdi(**final_env_kwargs)
         super().__init__(env)
         
         # 5. 重新定义观测空间（包含历史步长）
@@ -118,7 +130,15 @@ class DssatGenericWrapper(gym.Wrapper):
         # Tianshou 2.0 安全补丁
         if info is None: info = {}
         
-        return stacked_obs, float(reward), terminated, truncated, info
+        # 奖励处理：DssatPdi 在 mode='all' 时可能返回列表 [ferti_reward, irrig_reward]
+        if isinstance(reward, list):
+            final_reward = float(np.sum(reward))
+        elif reward is not None:
+            final_reward = float(reward)
+        else:
+            final_reward = 0.0
+            
+        return stacked_obs, final_reward, terminated, truncated, info
 
     def close(self):
         return self.env.close()

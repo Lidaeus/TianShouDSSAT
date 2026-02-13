@@ -127,3 +127,30 @@
 向
 - **结论**：本地环境修补已达到边际效应递减点。物理引擎与 Python 环境的深度耦合在非标准 Linux 布局下极易崩溃。
 - **策略转向**：放弃本地 Hard 模式，转向 **短路径本地部署 (/opt/dssat_env)** 与 **Tianshou 2.0 架构重构**，确保物理引擎稳定运行。
+
+## 2026-02-12: 番茄 (Tomato) 环境适配与 PDI 深度故障排查
+
+### 问题 1: PDI 握手无限期阻塞 (Deadlock)
+- **症状**: env.reset() 卡死，不报错也不退出。
+- **坑位**: PDI YAML 模板中定义了 ISTAGE 等变量，但番茄所属的 CROPGRO 模块在 Fortran 层并未调用 pdi_expose 导出这些变量。PDI 插件会阻塞等待所有定义变量就绪。
+- **解决方案**: 为番茄定制 dssat_pdi.jinja2，移除 ISTAGE, PCNGRN, DTT 等不支持的字段，并在 Python 脚本中为缺失变量提供默认值。
+
+### 问题 2: 物理引擎底层报错被吞 (Silent Crash)
+- **症状**: 子进程启动后立即退出，但 Python 层表现为等待 ZMQ 响应。
+- **坑位**: 官方源码将 stdout/stderr 重定向至 /dev/null。番茄试验依赖 UFGA.CLI 和 SOIL.SOL 中的特定 ID (UFGA010700)，这些文件未被拷贝至临时目录导致 Fortran 报错。
+- **解决方案**: 修改 DssatPdi.py，将子进程输出重定向至临时目录下的 dssat_raw.log，并通过 auxiliary_file_paths 强制注入缺失的资源文件。
+
+### 问题 3: PDI 嵌套 Python 环境缺失依赖
+- **症状**: dssat_raw.log 提示 ModuleNotFoundError: No module named 'numpy'。
+- **坑位**: PDI 插件调用系统 Python 执行 on_event 脚本，无法自动识别项目虚拟环境。
+- **解决方案**: 在 DssatPdi.py 启动子进程时，向 env['PYTHONPATH'] 注入系统 PDI 绑定路径及项目虚拟环境的 site-packages 路径。
+
+### 问题 4: NumPy 2.0 兼容性断层
+- **症状**: AttributeError: 'itemset' was removed from the ndarray class。
+- **坑位**: 官方模板使用了已废弃的 itemset 方法。
+- **解决方案**: 将所有 YAML 模板中的 itemset(val) 替换为 NumPy 2.0 兼容的 [()] = val 语法。
+
+### 问题 5: Gymnasium 1.x API 适配
+- **症状**: ValueError: not enough values to unpack (expected 2, got 0)。
+- **坑位**: 原始库针对旧版 Gym 编写，reset 返回单值，step 返回 4 元组。
+- **解决方案**: 修改 DssatPdi.py 源码，使 reset 返回 (obs, info)，step 返回 5 元组。

@@ -31,3 +31,16 @@
 
 ### Removed
 - 移除了未经过物理验证的草莓 (Strawberry) 支持。
+
+## [2.0.0-rc3] - 2026-02-12
+### Added
+- 为 DssatPdi 类增加 pdi_template_path 参数，支持外部动态注入 PDI YAML 模板。
+- 为 Tomato (番茄) 建立独立的 PDI YAML 和资源注入逻辑。
+- 在 DssatGenericWrapper 中实现辅助文件 (.WTH, .CLI, .SOL) 的全路径自动补全。
+
+### Fixed
+- 彻底解决了 PDI 握手死锁问题（通过 crop-specific YAML）。
+- 解决了 PDI 内部 Python 环境找不到 Numpy/PDI 绑定的问题。
+- 修复了 Numpy 2.0 导致的 AttributeError: itemset 兼容性问题。
+- 解决了库源码中的循环引用问题（通过重构导入机制）。
+- 确保了 env.reset() 和 env.step() 返回值符合 Gymnasium 1.x 标准。
