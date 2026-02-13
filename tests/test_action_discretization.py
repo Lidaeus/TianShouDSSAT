@@ -27,6 +27,7 @@ def test_step_accepts_integer():
         # Action 0 -> Anfer=0, Amir=0
         obs, reward, term, trunc, info = env.step(0)
         assert obs is not None
+        assert not term, "Environment terminated immediately on first step!"
         
         # Action 35 -> Max Anfer, Max Amir
         obs, reward, term, trunc, info = env.step(35)

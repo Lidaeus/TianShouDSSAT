@@ -154,3 +154,40 @@
 - **症状**: ValueError: not enough values to unpack (expected 2, got 0)。
 - **坑位**: 原始库针对旧版 Gym 编写，reset 返回单值，step 返回 4 元组。
 - **解决方案**: 修改 DssatPdi.py 源码，使 reset 返回 (obs, info)，step 返回 5 元组。
+
+## 2026-02-12: [深度复盘] 多作物适配与底层重构期故障总结
+
+### A. 物理引擎与资源层 (Physical Engine & Resources)
+1. **FileX 格式严格对齐问题 (Error 5010)**:
+   - **坑位**: DSSAT 对 FileX 文件的列宽有极高敏感度，Jinja2 渲染时的额外空格或制表符会导致 `IPEXP` 报错。
+   - **对策**: 采用“基于官方原版文件打补丁”的策略生成 Jinja2 模板，严禁手动构造数据行，确保列宽 100% 还原。
+2. **隐藏资源依赖 (.CLI)**:
+   - **坑位**: 部分作物模型（如 TMGRO048）隐式依赖气象站索引文件 (`.CLI`)，缺失会导致 `MAKEFW` 报错。
+   - **对策**: 在 `DssatGenericWrapper` 中硬编码常用资源路径 (`/opt/dssat_env/data/`)，并自动将其加入 `auxiliary_file_paths`。
+
+### B. PDI 通讯层 (PDI Middleware)
+1. **变量定义死锁 (Data Synchronization Deadlock)**:
+   - **坑位**: PDI 插件在 `reset` 时会阻塞等待 YAML 中定义的所有 `data` 变量就绪。若作物 A 的 Fortran 代码没有 `pdi_expose` 作物 B 专有的变量（如 `ISTAGE`），则会导致永久卡死。
+   - **对策**: 彻底消除 YAML 的“普遍性”，为每种作物实现独立的 `dssat_pdi.jinja2`，仅定义该作物真实支持的变量。
+2. **嵌套环境依赖缺失 (Embedded Python Environment)**:
+   - **坑位**: PDI 调用的 Python 解释器无法自动继承项目虚拟环境路径，导致导入 `numpy` 或 `pdi` 失败。
+   - **对策**: 在 `subprocess.Popen` 启动时，强制向 `PYTHONPATH` 注入项目 `site-packages` 和系统 PDI 绑定路径。
+3. **NumPy 2.0 兼容性断层**:
+   - **坑位**: `ndarray.itemset()` 已被移除，官方库模板仍在使用。
+   - **对策**: 全面升级 PDI 脚本，使用 `arr[()] = val` 替代 `itemset()`。
+
+### C. 库代码架构层 (Library Architecture)
+1. **包初始化循环引用 (Circular Imports)**:
+   - **坑位**: `envs/__init__.py` 导出 `DssatPdi`，而 `DssatPdi.py` 又在顶层导入包内的 `rewards`/`utils`，导致循环死锁。
+   - **对策**: 清空 `__init__.py` 自动导出，改用绝对模块路径导入 (`import gym_dssat_pdi.envs.rewards as rewards`)，确保命名空间加载顺序。
+2. **初始化时序敏感性**:
+   - **坑位**: `__init__` 失败时会触发 `__del__`，若属性（如 `closed`, `_tmp_folder`）尚未定义则报 `AttributeError` 掩盖真实错讯。
+   - **对策**: 在 `__init__` 第一行强制初始化所有关键安全属性。
+
+### D. RL 适配层 (Reinforcement Learning API)
+1. **Gymnasium 1.x 接口不兼容**:
+   - **坑位**: 原始库返回单值或 4 元组，导致 Tianshou 2.0 崩溃。
+   - **对策**: 深度重构 `reset` (返回 `obs, info`) 和 `step` (返回 5 元组)。
+2. **奖励函数类型冲突**:
+   - **坑位**: `mode='all'` 时奖励函数返回列表，导致 `float()` 转换失败。
+   - **对策**: 在 Wrapper 层实现奖励列表求和逻辑，确保输出标量。

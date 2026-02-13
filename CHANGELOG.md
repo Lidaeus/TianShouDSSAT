@@ -1,5 +1,21 @@
 # Changelog
 
+## [v2.1.0] - 2026-02-12
+### Added
+- 正式支持 **Tomato (番茄)** 环境适配（基于 CROPGRO 模型）。
+- 实现通用包装器 `DssatGenericWrapper` 的动作离散化映射逻辑，支持 Rainbow DQN 训练。
+- 增加 `train_dssat.py` 统一训练脚本，支持参数化切换作物和配置。
+- 增加多作物自动运行脚本 `run_experiments.sh`。
+
+### Fixed
+- 修复了 Maize (玉米) 环境因 PDI 模板逻辑错误导致的“单步即终止”关键 Bug。
+- 解决了 PDI 握手过程中的 YRDOY 变量同步失效问题。
+- 汉化了所有核心文档和代码注释，对齐项目长期记忆规范。
+
+### Changed
+- 重构了 `dssat_pdi.jinja2` 模板，采用更鲁棒的 `flag_undone` 和 `interact` 逻辑。
+- 升级了 `DssatGenericWrapper`，支持全路径资源自动补全和历史状态拼接。
+
 ## [2.0.0-rc2] - 2026-02-12
 
 ### Added
