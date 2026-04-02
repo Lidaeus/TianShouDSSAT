@@ -35,6 +35,7 @@ if __name__ == "__main__":
     results = {}
     results['maize'] = test_crop("maize")
     results['tomato'] = test_crop("tomato")
+    results['wheat'] = test_crop("wheat")
     
     print("\n" + "="*30)
     print("FINAL REGRESSION RESULTS:")

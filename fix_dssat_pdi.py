@@ -48,7 +48,7 @@ content = content.replace('return None, None, self.done, None', 'return self.obs
 content = content.replace('assert isinstance(action_dict, dict)', 'for k,v in action_dict.items(): action_dict[k] = float(v)\n        assert isinstance(action_dict, dict)')
 
 # 7. Tomato
-content = content.replace('"rice"   : \'IRPI8001\'', '"rice"   : \'IRPI8001\',\n            "tomato" : \'UFGA0602\'')
+content = content.replace('"rice"   : \'IRPI8001\'', '"rice"   : \'IRPI8001\',\n            "tomato" : \'UFGA0602\',\n            "wheat"  : \'KSAS8101\'')
 
 with open(file_path, 'w') as f:
     f.write(content)

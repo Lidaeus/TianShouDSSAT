@@ -4,6 +4,7 @@ import glob
 import numpy as np
 import gymnasium as gym
 from collections import deque
+from typing import Any
 import psutil
 import subprocess
 
@@ -13,7 +14,7 @@ PACKAGE_PATH = os.path.join(PROJECT_ROOT, "lib/gym_dssat_pdi_official/gym-dssat-
 if PACKAGE_PATH not in sys.path:
     sys.path.insert(0, PACKAGE_PATH)
 
-from gym_dssat_pdi.envs import DssatPdi
+from gym_dssat_pdi.envs.dssat_pdi import DssatPdi
 
 # --- 补丁逻辑 (保持原样) ---
 def patched_launch_client(self):
@@ -61,9 +62,30 @@ class MaizeEnvWrapper(gym.Wrapper):
         print(f"[Wrapper] 初始化成功。")
 
     def reset(self, seed=None, options=None):
-        raw_obs = self.env.reset()
+        reset_kwargs = {}
+        if seed is not None:
+            reset_kwargs["seed"] = seed
+        if options is not None:
+            reset_kwargs["options"] = options
+        try:
+            reset_result = self.env.reset(**reset_kwargs)
+        except TypeError:
+            reset_result = self.env.reset()
+        raw_obs, info = self._normalize_reset_result(reset_result)
         self.history_buffer.clear()
-        return self._process_obs(raw_obs), {}
+        return self._process_obs(raw_obs), info
+
+    def _normalize_reset_result(self, reset_result: Any):
+        if isinstance(reset_result, tuple) and len(reset_result) == 2 and isinstance(reset_result[1], dict):
+            return reset_result[0], dict(reset_result[1])
+        return reset_result, {}
+
+    def _to_scalar_reward(self, reward: Any) -> float:
+        if reward is None:
+            return 0.0
+        if isinstance(reward, (list, tuple, np.ndarray)):
+            return float(np.sum(reward))
+        return float(reward)
 
     def _process_obs(self, raw_obs):
         if not hasattr(self, 'history_buffer'): # 防御性编程
@@ -88,9 +110,18 @@ class MaizeEnvWrapper(gym.Wrapper):
 
     def step(self, action_idx):
         action_dict = {'anfer': float(self._action_map[action_idx])}
-        raw_obs, reward, done, info = self.env.step(action_dict)
-        if info is None: info = {}
-        return self._process_obs(raw_obs), (reward if reward is not None else 0.0), done, False, info
+        step_result = self.env.step(action_dict)
+        if len(step_result) == 5:
+            raw_obs, reward, terminated, truncated, info = step_result
+        else:
+            raw_obs, reward, done, info = step_result
+            terminated = bool(done)
+            truncated = False
+        info = dict(info or {})
+        info["applied_action"] = dict(action_dict)
+        info["action_index"] = int(action_idx)
+        info["native_reward"] = self._to_scalar_reward(reward)
+        return self._process_obs(raw_obs), info["native_reward"], terminated, truncated, info
 
     def close(self):
         if hasattr(self, 'env'): self.env.close()

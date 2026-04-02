@@ -35,14 +35,13 @@
 *   **关键变量**: `TILNO` (分蘖数), `DYIELD` (日产量), `GPP` (每平方米粒数)。
 
 ### 2.4 NWheat (小麦)
-*   **状态**: **暂不支持 (PDI缺失)**。
-*   **现状**: DSSAT 拥有 NWheat 物理逻辑，但 `gym-dssat-pdi` 的开发者未在 `Plant/NTEF` 目录下插入 PDI 调用代码。
-*   **对策**: 
-    1.  手动在 `TF_PHENOL.for` 等文件中插入 `pdi_expose`。
-    2.  或仅依赖通用模块（Global Support）中的土壤与水资源数据进行简单训练。
+*   **状态**: **项目层已接入**。
+*   **现状**: 项目已补齐 Wheat 的 FileX 模板、PDI 模板、环境配置、Wrapper 入口与测试覆盖，当前默认实验基于 `KSAS8101.WHX` 和 `WHAPS048`。
+*   **关键变量**: `ISTAGE`, `VSTAGE`, `GRNWT`, `TOPWT`, `SWFAC`, `NSTRES`, `XLAI`, `RTDEP`。
+*   **边界**: 当前支持以现有 DSSAT-PDI 可暴露变量为主，若后续需要更深层 Wheat 专有生理变量，再评估是否做 Fortran 层插桩扩展。
 
 ## 3. 开发优先级
 1.  **Maize (玉米)**: 已调通，作为 Baseline。
 2.  **Tomato (番茄)**: 利用 CROPGRO 通用性，优先迁移。
 3.  **Strawberry (草莓)**: 利用 CROPGRO 通用性，次优先迁移。
-4.  **Wheat (小麦)**: 待评估是否需要进行 Fortran 层的手动插桩。
+4.  **Wheat (小麦)**: 已完成项目接入，后续按训练表现决定是否继续深入 Fortran 层扩展。
